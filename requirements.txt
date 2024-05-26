@@ -1,0 +1,14 @@
+easydict==1.10
+imutils==0.5.4
+ipython==7.34.0
+matplotlib==3.5.3
+multiprocess
+opencv-python==4.8.0.76
+pandas==1.3.5
+psutil==5.9.5
+PyYAML==6.0
+seaborn==0.12.2
+scipy==1.7.3
+scikit-learn==1.0.2
+tqdm==4.65.0
+xlwings==0.30.6
