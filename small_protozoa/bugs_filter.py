@@ -98,7 +98,7 @@ class BBoxFilter:
 
     def update_bbox(self, outputs, translation=None):
         """
-        更新检测框狂信息
+        更新检测框信息
         :param outputs: 新的检测框信息
         :param translation: 位移矢量
         :return:

@@ -33,7 +33,7 @@ class FrameDifferProcessing:
             if len(self.frame_input_list) > 0:
                 frame_index, frame, blurry, blurry_text, outputs, others = self.frame_input_list.pop(0)
                 # 检测
-                result = small_protozoa_detect.detect(blurry, frame_index, frame, outputs, others)
+                result = small_protozoa_detect.detect(blurry, frame_index, frame, outputs)
                 self._set_result_queue((*result, blurry, blurry_text))
             else:
                 if not self.sign_dict['yolo_detect_sign']:

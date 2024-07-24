@@ -5,27 +5,16 @@ from .features_match import calc_translation
 from copy import deepcopy
 from .tracker import Tracker
 from .bugs_filter import BBoxFilter
-from .bigprotozoa_framediffer import Bp_frame
-
-# import logging
-#
-# # 配置日志记录
-# logging.basicConfig(level=logging.INFO, filename='app_frame.log', filemode='a',
-#                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class FrameDifferDetector:
-    NOISY_LIST = [(912, 608, 150), (1132, 718, 50), (800, 80, 50), (510, 1080, 50), (1650, 560, 50),
-                  (1400, 1130, 100), (96, 366, 50), (294, 33, 50), (381, 218, 50), (1368, 718, 50), 
-                  (1518, 905, 50), (1575, 1052, 50), (1666, 487, 50), (1612, 85, 50), (1195, 970, 50)]  # 屏幕噪点 (x, y, r)
-    # NOISY_LIST = []
+class FrameDifferDetector:    
+    NOISY_LIST = [(912, 608, 150), (1132, 718, 50), (800, 80, 50), (510, 1080, 50), (1650, 560, 50), (1400, 1130, 100), (96, 366, 50), (294, 33, 50), (381, 218, 50), (1368, 718, 50), (1518, 905, 50), (1575, 1052, 50), (1666, 487, 50), (1612, 85, 50), (1195, 970, 50), (1378, 670, 50)]  # 屏幕噪点 (x, y, r)
 
     def __init__(self):
 
         self.per_frame = None  # 前一帧
         self.tracker = Tracker()  # 管理器
         self.bbox_filter = BBoxFilter()  # 大虫子过滤器
-        self.bp_frame = Bp_frame() # ln 2024.1.4 边界框内小虫子数量统计器
 
     @staticmethod
     def calc_distance(point1, point2):
@@ -89,61 +78,6 @@ class FrameDifferDetector:
             result_list.append((left, top, right, bottom))
 
         return result_list
-    
-    def frame_differ1(self, per_frame_gary, frame_gary):
-        """
-        魔改版帧差法
-        :param per_frame_gary: 前一帧
-        :param frame_gary: 当前帧
-        :return: 可能为运动目标的区域信息
-        """
-
-        # 帧差法
-        diff = cv2.absdiff(per_frame_gary, frame_gary)
-        diff_stat = np.median(diff)
-
-        if diff_stat > 2:
-            return []
-        # diff = cv2.GaussianBlur(diff, (5, 5), 0)
-
-        ret, binary = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
-
-        ksize1, ksize2 = (3, 3)
-        kernel1 = np.ones((ksize1, ksize1), np.float64)
-
-        # binary = cv2.morphologyEx(binary, cv2.MORPH_ERODE, kernel1) # 腐蚀操作
-
-        kernel2 = np.ones((ksize2, ksize2), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_DILATE, kernel2, iterations=10) # 膨胀操作
-
-        cnts, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        if len(cnts) >= 20:
-            return []
-
-        # 初步过滤
-        location_list = []
-        for cnt in cnts:
-            x, y, w, h = cv2.boundingRect(cnt)
-            x1, y1, x2, y2 = x, y, x + w, y + h
-            center_point = ((x1 + x2) / 2, (y1 + y2) / 2)
-            area = (x2 - x1) * (y2 - y1)
-            # if 100 < area < 10000 and not self.filter_screen_noisy(center_point):
-            #     location_list.append((x1, y1, x2, y2))
-
-            # ln 2024.1.9
-            if not self.filter_screen_noisy(center_point):
-                location_list.append((x1, y1, x2, y2))
-
-        # 散点聚类
-        # if location_list:
-        #     location_list = self.cluster(location_list)
-
-        # 最终结果
-        point_list = [(int((location[0] + location[2]) / 2), int((location[1] + location[3]) / 2),
-                       (location[2] - location[0]) * (location[3] - location[1])) for location in location_list]
-
-        return point_list
 
     def frame_differ(self, per_frame_gary, frame_gary):
         """
@@ -166,10 +100,10 @@ class FrameDifferDetector:
         ksize1, ksize2 = (3, 3)
         kernel1 = np.ones((ksize1, ksize1), np.float64)
 
-        binary = cv2.morphologyEx(binary, cv2.MORPH_ERODE, kernel1) # 腐蚀操作
+        binary = cv2.morphologyEx(binary, cv2.MORPH_ERODE, kernel1)
 
         kernel2 = np.ones((ksize2, ksize2), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_DILATE, kernel2, iterations=10) # 膨胀操作
+        binary = cv2.morphologyEx(binary, cv2.MORPH_DILATE, kernel2, iterations=10)
 
         cnts, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -186,7 +120,6 @@ class FrameDifferDetector:
             if 100 < area < 10000 and not self.filter_screen_noisy(center_point):
                 location_list.append((x1, y1, x2, y2))
 
-
         # 散点聚类
         if location_list:
             location_list = self.cluster(location_list)
@@ -197,7 +130,7 @@ class FrameDifferDetector:
 
         return point_list
 
-    def detect(self, blurry, frame_index, frame, outputs, others):
+    def detect(self, blurry, frame_index, frame, outputs):
         """
         小虫子检测
         :param blurry: 当前帧是否模糊
@@ -233,24 +166,12 @@ class FrameDifferDetector:
         # 帧差法
         message_list = self.frame_differ(img1, img2)
 
-        # 降噪前帧差法 ln 2024.1.11
-        message_list1 = self.frame_differ1(img1, img2)
-
-        # ln 2024.1.4 记录未经大虫子过滤前的小虫子信息
-        cls_list = [other.cls for other in others]
-        # logging.info(f'过程传参： {outputs}, {cls_list}')
-        # self.bp_frame.bp_frame_differ(frame_index, message_list1, outputs, others, frame)
-
         # 大虫子过滤
         self.bbox_filter.update_bbox(outputs, translation)
         message_list = self.bbox_filter.filter(message_list)
 
-        translation1 = deepcopy(translation)
-
         # 数据更新
-        self.tracker.update(frame_index, message_list1, translation)
-
-        self.tracker.update(frame_index, message_list1, translation1)
+        self.tracker.update(frame_index, message_list, translation)
 
         # 显示处理
         show_image = deepcopy(frame)
