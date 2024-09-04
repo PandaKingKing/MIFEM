@@ -10,7 +10,7 @@ from tools.blur_detector import BlueDetector
 from tools.path_manager import PathManager, PathDir
 from frame_differ_processing import FrameDifferProcessing
 from manager_processing import ManagerProcessing
-from big_protozoa.really_bug_record import ReallyBugRecord
+from big_microfauna.really_bug_record import ReallyBugRecord
 from writer.write_to_execl import ExcelWriter, JSONWriter
 from writer.write_to_others import save_blurry_list
 import time
