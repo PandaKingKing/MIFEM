@@ -8,6 +8,7 @@ from video_processing import VideoProcessing
 from yolo_processing import YoloProcessing
 from tools.blur_detector import BlueDetector
 from tools.path_manager import PathManager, PathDir
+from tools.frame_set import frame_set
 from frame_differ_processing import FrameDifferProcessing
 from manager_processing import ManagerProcessing
 from big_microfauna.really_bug_record import ReallyBugRecord
@@ -48,8 +49,27 @@ if __name__ == '__main__':
     pwd = os.getcwd()
     video_display = False
     video_save = True
+
+    error_video = []  # 需考量视频列表
+    frame_interval = {}  # 视频对应检测帧区间
+
+    # methods设置为manual表示手动设置，且人工选择是否设置起始帧、结束帧、检测帧数；auto表示自动处理；除manual、auto均为全帧检测,且帧参数均不生效
+    methods = "auto"
+    manual_option = "end_detect"
+    start_index = 101  # 开始帧
+    end_index = 300  # 结束帧980
+    detect_index = 300  # 固定检测帧数
+
+    # input_path = r'Z:\ROMIDAS0.3\ROMIDAS-NAS\D\123\impact video\pfoa'
+    # output_path = r'Z:\ROMIDAS0.3\out\pfoa'
+    input_path = r"Z:\ROMIDAS0.3\ROMIDAS-NAS\D\123\impact video\pfoa"
+    output_path = r"Z:\ROMIDAS0.3\output_PFOA_1016"
+    #input_path = r"Z:\ROMIDAS0.3\test_small"
+    #output_path = r"Z:\ROMIDAS0.3\output_small"
     if detect_type == 'video':
-        path_manager = PathManager(f'{pwd}/input', f'{pwd}/output')
+        # path_manager = PathManager(f'{pwd}/input', f'{pwd}/output')
+        path_manager = PathManager(input_path, output_path)
+
         for i, path_dir in enumerate(path_manager.items()):
 
             # 进程通信标志
@@ -67,11 +87,11 @@ if __name__ == '__main__':
             # 视频读入器
             video_reader = VideoReader(path_dir.video_input_path)
             # 进程通信队列
-            yolo_result_queue = Queue()
-            frame_result_queue = Queue()
-            frame_input_queue = Queue()
-            yolo_input_queue = Queue()
-            video_queue = Queue()
+            yolo_result_queue = Queue(maxsize=100)
+            frame_result_queue = Queue(maxsize=100)
+            frame_input_queue = Queue(maxsize=100)
+            yolo_input_queue = Queue(maxsize=100)
+            video_queue = Queue(maxsize=100)
 
             # 设置进程
 
@@ -132,16 +152,56 @@ if __name__ == '__main__':
             video_start_time = time.time()
             print(f'第{i + 1}个视频 {video_reader.video_name} 开始时间: {time.ctime()}')
             blurry_list = []
+
+            total_index = video_reader.total_frames
+            frame_list1 = frame_set(methods, manual_option, start_index, end_index, detect_index, total_index,
+                                    video_reader.video_name)
+            print(frame_list1)
+            if isinstance(frame_list1, list) and len(frame_list1) > 0:
+                frame_interval[video_reader.video_name] = frame_list1
+
             for frame_index, frame in enumerate(video_reader):
+                # time.sleep(0.005)
 
-                if frame_index % 200 == 0 and not video_display:
-                    print(f'已经输入 {frame_index} 帧')
+                # if frame_index % 200 == 0 and not video_display:
+                # print(f'已经输入 {frame_index} 帧')
+                # time.sleep(1)
 
-                blurry, blurry_text, blurry_mean = bd.detect(frame)
-                blurry_list.append(blurry_mean)
-                lock.acquire()
-                yolo_input_queue.put((frame_index, frame, blurry, blurry_text))
-                lock.release()
+                # blurry, blurry_text, blurry_mean = bd.detect(frame)
+                # blurry_list.append(blurry_mean)
+                # lock.acquire()
+                # yolo_input_queue.put((frame_index, frame, blurry, blurry_text))
+                # lock.release()
+
+                if isinstance(frame_list1, list) and len(frame_list1) == 0:
+                    blurry, blurry_text, blurry_mean = bd.detect(frame)
+                    blurry_list.append(blurry_mean)
+                    lock.acquire()
+                    yolo_input_queue.put((frame_index, frame, blurry, blurry_text))
+                    lock.release()
+
+                    if frame_index % 200 == 0 and not video_display:
+                        print(f'已经输入第 {frame_index} 帧')
+
+                elif isinstance(frame_list1, list) and len(frame_list1) > 0:
+
+                    if frame_list1[0] <= frame_index <= frame_list1[1]:
+                        blurry, blurry_text, blurry_mean = bd.detect(frame)
+                        blurry_list.append(blurry_mean)
+                        lock.acquire()
+                        yolo_input_queue.put((frame_index, frame, blurry, blurry_text))
+                        lock.release()
+
+                        if frame_index % 200 == 0 and not video_display:
+                            print(f'已经输入第 {frame_index} 帧')
+
+                elif isinstance(frame_list1, str):
+                    if frame_list1 not in error_video:
+                        error_video.append(frame_list1)
+
+                else:
+                    print("指定视频检测帧数有误")
+
             # 数据输入结束
             lock.acquire()
             sign_dict['video_input_sign'] = True
@@ -268,9 +328,14 @@ if __name__ == '__main__':
 
     else:
         print('检测类型错误')
-    root_path = r".\output"
-    txt_path = r".\output\record.txt"
+    # root_path = r".\output"
+    # txt_path = r".\output\record.txt"
+    root_path = output_path
+    txt_path = os.path.join(output_path, "record.txt")
+    # txt_path = r"Z:\ROMIDAS0.3\out\Cu2\record.txt"
     images_to_video_recursive(root_path, txt_path)
     print('finish')
+    print("需重新考量的视频:", error_video)
+    print("视频对应检测帧区间：", frame_interval)
     main_pid = os.getpid()
     os.kill(main_pid, signal.SIGINT)
