@@ -24,7 +24,7 @@ Corresponding image files: https://doi.org/10.5281/zenodo.8220629
 
 ***
 
-best5.pt: https://doi.org/10.5281/zenodo.11207952
+best5.pt: https://doi.org/10.5281/zenodo.14642845
 
 ckpt.t7: https://github.com/Sharpiless/Yolov5-Deepsort/blob/main/deep_sort/deep_sort/deep/checkpoint  
 This file is derived from the publicly available open-source DeepSORT code.
